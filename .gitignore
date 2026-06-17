@@ -1,0 +1,9 @@
+node_modules
+dist
+*.local
+.DS_Store
+smoke-screenshot.png
+corner-check.png
+# Backend
+server/kitchen-server.exe
+server/data.json

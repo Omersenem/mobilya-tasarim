@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mutfak Tasarım 3D — Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; font-family: system-ui, "Segoe UI", Roboto, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  #panel {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 224px;
+    background: rgba(15, 20, 28, 0.93); color: #e5e7eb;
+    backdrop-filter: blur(8px); padding: 14px 12px; overflow-y: auto;
+    box-shadow: 2px 0 18px rgba(0,0,0,.35); z-index: 10;
+  }
+  #panel h1 { font-size: 15px; font-weight: 700; margin-bottom: 2px; color: #fff; }
+  #panel .sub { font-size: 11px; color: #9ca3af; margin-bottom: 12px; }
+  .group-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
+    color: #6b7280; margin: 13px 0 6px; }
+  .item-btn {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    background: #1c2530; border: 1px solid #2f3a47; color: #e5e7eb;
+    border-radius: 9px; padding: 8px 10px; margin-bottom: 5px; cursor: pointer;
+    font-size: 13px; text-align: left; transition: .12s;
+  }
+  .item-btn:hover { background: #2a3744; border-color: #3f4d5c; transform: translateX(2px); }
+  .item-btn .ico { font-size: 17px; width: 22px; text-align: center; }
+  .preset-btn { background: #14361f; border-color: #1f5132; }
+  .preset-btn:hover { background: #1c4a2b; }
+
+  #topbar {
+    position: absolute; top: 12px; left: 236px; right: 12px; z-index: 10;
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .pill {
+    background: rgba(15,20,28,.92); color: #e5e7eb; border: 1px solid #2f3a47;
+    border-radius: 999px; padding: 7px 13px; font-size: 12.5px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; user-select: none;
+  }
+  .pill:hover { background: #2a3744; }
+  .pill.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .pill.theme { background: #7c3aed; border-color: #7c3aed; color:#fff; }
+  .pill.theme:hover { background: #8b4ff0; }
+  .pill.danger:hover { background: #dc2626; border-color: #dc2626; }
+
+  #help {
+    position: absolute; bottom: 12px; left: 236px; z-index: 10;
+    background: rgba(15,20,28,.85); color: #d1d5db; border: 1px solid #2f3a47;
+    border-radius: 10px; padding: 9px 13px; font-size: 12px; line-height: 1.7; max-width: 440px;
+  }
+  #help b { color: #fff; }
+  kbd { background:#2f3a47; border-radius:4px; padding:1px 6px; font-size:11px; border:1px solid #3f4d5c; }
+  #count { position:absolute; bottom:12px; right:12px; z-index:10; color:#9ca3af; font-size:11px;
+    background: rgba(15,20,28,.7); padding:5px 10px; border-radius:8px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="panel">
+  <h1>🍳 Mutfak Tasarım 3D</h1>
+  <div class="sub">Tıkla → ekle · Sürükle → yerleştir</div>
+
+  <div class="group-label">⚡ Hazır Mutfaklar</div>
+  <button class="item-btn preset-btn" data-preset="L"><span class="ico">📐</span> L Mutfak</button>
+  <button class="item-btn preset-btn" data-preset="single"><span class="ico">▭</span> Tek Duvar</button>
+  <button class="item-btn preset-btn" data-preset="island"><span class="ico">🏝️</span> Ada Mutfak</button>
+
+  <div class="group-label">Dolaplar</div>
+  <button class="item-btn" data-type="base"><span class="ico">🗄️</span> Alt Dolap</button>
+  <button class="item-btn" data-type="wall"><span class="ico">📦</span> Üst Dolap</button>
+  <button class="item-btn" data-type="tall"><span class="ico">🚪</span> Boy Dolap</button>
+  <button class="item-btn" data-type="counter"><span class="ico">▬</span> Tezgah Parçası</button>
+
+  <div class="group-label">Beyaz Eşya</div>
+  <button class="item-btn" data-type="fridge"><span class="ico">🧊</span> Buzdolabı</button>
+  <button class="item-btn" data-type="oven"><span class="ico">🔥</span> Fırın</button>
+  <button class="item-btn" data-type="stove"><span class="ico">🍳</span> Ocak</button>
+  <button class="item-btn" data-type="sink"><span class="ico">🚰</span> Evye</button>
+  <button class="item-btn" data-type="dishwasher"><span class="ico">💧</span> Bulaşık Mak.</button>
+  <button class="item-btn" data-type="hood"><span class="ico">🌀</span> Davlumbaz</button>
+
+  <div class="group-label">Dekor</div>
+  <button class="item-btn" data-type="rug"><span class="ico">🟫</span> Halı</button>
+  <button class="item-btn" data-type="plant"><span class="ico">🪴</span> Saksı Bitki</button>
+  <button class="item-btn" data-type="stool"><span class="ico">🪑</span> Tabure</button>
+  <button class="item-btn" data-type="table"><span class="ico">🍽️</span> Yemek Masası</button>
+</div>
+
+<div id="topbar">
+  <span class="pill theme" id="btn-theme">🎨 Görünüm: Modern Ahşap</span>
+  <span class="pill on" id="btn-decor">🛋️ Dekor: Açık</span>
+  <span class="pill on" id="btn-layout">📐 L Köşe</span>
+  <span class="pill on" id="btn-snap">🧲 Izgara</span>
+  <span class="pill" id="btn-rotate">🔄 Döndür (R)</span>
+  <span class="pill" id="btn-color">🎨 Renk</span>
+  <span class="pill danger" id="btn-delete">🗑️ Sil (Del)</span>
+  <span class="pill" id="btn-clear">♻️ Temizle</span>
+</div>
+
+<div id="help">
+  <b>Kamera:</b> sol tık sürükle döndür · tekerlek yakınlaş ·
+  <b>Eşya:</b> tıkla seç + sürükle taşı · <kbd>R</kbd> döndür · <kbd>Del</kbd> sil · <kbd>Esc</kbd> bırak
+</div>
+<div id="count">0 obje</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+// ============ Renderer ============
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xd7dde3, 14, 26);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(4.4, 3.7, 5.6);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.9, 0);
+controls.maxPolarAngle = Math.PI / 2.04;
+controls.minDistance = 2.2;
+controls.maxDistance = 16;
+controls.enableDamping = true;
+
+// ============ Işıklar ============
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8475, 0.5);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff4e0, 1.7);
+sun.position.set(4.5, 7.5, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -5; sun.shadow.camera.right = 5;
+sun.shadow.camera.top = 5; sun.shadow.camera.bottom = -5;
+sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 25;
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.02;
+scene.add(sun);
+
+// ============ Prosedürel dokular (harici dosya yok) ============
+function noise(ctx, w, h, amt, alpha) {
+  const img = ctx.getImageData(0, 0, w, h), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.sin(i * 12.9898) * 43758.5453) % 1; // deterministik psödo-rastgele
+    const v = (n - 0.5) * amt;
+    d[i] += v; d[i+1] += v; d[i+2] += v;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+function woodFloorTexture(base, plankShade) {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = base; ctx.fillRect(0, 0, 512, 512);
+  const pw = 73;
+  for (let x = 0; x < 512; x += pw) {
+    const sh = 1 + (Math.sin(x) * 0.5) * plankShade;
+    ctx.fillStyle = shade(base, sh);
+    ctx.fillRect(x, 0, pw - 2, 512);
+    // damar çizgileri
+    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+    for (let g = 0; g < 7; g++) {
+      ctx.beginPath();
+      const gx = x + 6 + g * 9;
+      ctx.moveTo(gx, 0); ctx.bezierCurveTo(gx+4, 170, gx-4, 340, gx+2, 512);
+      ctx.stroke();
+    }
+    // ek yerleri (yatay)
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(x, ((x * 37) % 512), pw - 2, 2);
+  }
+  noise(ctx, 512, 512, 14, 1);
+  return canvasTex(c, 2, 2);
+}
+function tileTexture(base, grout) {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = grout; ctx.fillRect(0, 0, 512, 512);
+  const t = 122, gap = 6;
+  for (let y = 0; y < 512; y += t)
+    for (let x = 0; x < 512; x += t) {
+      ctx.fillStyle = shade(base, 1 + ((x+y) % 3) * 0.012);
+      ctx.fillRect(x + gap/2, y + gap/2, t - gap, t - gap);
+    }
+  noise(ctx, 512, 512, 6, 1);
+  return canvasTex(c, 3, 3);
+}
+function marbleTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ece9e3'; ctx.fillRect(0, 0, 512, 512);
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 14; i++) {
+    ctx.strokeStyle = `rgba(120,116,110,${0.18 + (i%3)*0.06})`;
+    ctx.beginPath();
+    let x = (i * 53) % 512, y = 0;
+    ctx.moveTo(x, y);
+    while (y < 512) { x += (Math.sin(y*0.05+i)*26); y += 24; ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+  noise(ctx, 512, 512, 8, 1);
+  return canvasTex(c, 1, 1);
+}
+function rugTexture(col) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = col; ctx.fillRect(0, 0, 256, 256);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 10;
+  ctx.strokeRect(16, 16, 224, 224);
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 4;
+  ctx.strokeRect(34, 34, 188, 188);
+  for (let i = 50; i < 206; i += 18) {
+    ctx.beginPath(); ctx.moveTo(50, i); ctx.lineTo(206, i); ctx.stroke();
+  }
+  noise(ctx, 256, 256, 10, 1);
+  return canvasTex(c, 1, 1);
+}
+function canvasTex(canvas, rx, ry) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(rx, ry);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n>>16)&255, g = (n>>8)&255, b = n&255;
+  r = Math.min(255, r*f); g = Math.min(255, g*f); b = Math.min(255, b*f);
+  return `rgb(${r|0},${g|0},${b|0})`;
+}
+
+const TEX = {
+  woodLight: woodFloorTexture('#b78a5a', 0.18),
+  woodDark:  woodFloorTexture('#6f4a30', 0.22),
+  tile:      tileTexture('#e7e3da', '#b9b3a6'),
+  marble:    marbleTexture(),
+};
+
+// ============ Oda ============
+const ROOM = 4.4, WALL_H = 2.7, HALF = ROOM / 2;
+
+const floorMat = new THREE.MeshStandardMaterial({ map: TEX.woodLight, roughness: 0.85, metalness: 0 });
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM, ROOM), floorMat);
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+scene.add(floor);
+
+const wallMat = new THREE.MeshStandardMaterial({ color: 0xeae6df, roughness: 1, side: THREE.DoubleSide });
+function makeWall() { const w = new THREE.Mesh(new THREE.PlaneGeometry(ROOM, WALL_H), wallMat); w.receiveShadow = true; return w; }
+const wallBack = makeWall(); wallBack.position.set(0, WALL_H/2, -HALF); scene.add(wallBack);
+const wallLeft = makeWall(); wallLeft.rotation.y = Math.PI/2; wallLeft.position.set(-HALF, WALL_H/2, 0); scene.add(wallLeft);
+
+// Süpürgelik
+const baseboardMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ec, roughness: 0.7 });
+function baseboard(len, x, z, ry) {
+  const b = new THREE.Mesh(new THREE.BoxGeometry(len, 0.1, 0.02), baseboardMat);
+  b.position.set(x, 0.05, z); b.rotation.y = ry; b.receiveShadow = true; scene.add(b);
+}
+baseboard(ROOM, 0, -HALF + 0.011, 0);
+baseboard(ROOM, -HALF + 0.011, 0, Math.PI/2);
+
+// Tavan
+const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM, ROOM), new THREE.MeshStandardMaterial({ color: 0xf6f5f2, roughness: 1, side: THREE.DoubleSide }));
+ceiling.rotation.x = Math.PI/2; ceiling.position.y = WALL_H; scene.add(ceiling);
+
+// Pencere (arka duvarda) — çerçeve + parlak dış manzara
+function buildWindow() {
+  const g = new THREE.Group();
+  const sky = document.createElement('canvas'); sky.width = 64; sky.height = 64;
+  const sx = sky.getContext('2d');
+  const grad = sx.createLinearGradient(0,0,0,64);
+  grad.addColorStop(0,'#acd6f5'); grad.addColorStop(0.6,'#dceefb'); grad.addColorStop(0.6,'#9fc08a'); grad.addColorStop(1,'#7fae6a');
+  sx.fillStyle = grad; sx.fillRect(0,0,64,64);
+  const view = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.1),
+    new THREE.MeshBasicMaterial({ map: canvasTex(sky,1,1) }));
+  view.position.z = 0.01; g.add(view);
+  const fm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+  const mkBar = (w,h,x,y)=>{ const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,0.06),fm); b.position.set(x,y,0.03); g.add(b); };
+  mkBar(1.62,0.07, 0, 0.57); mkBar(1.62,0.07, 0,-0.57);
+  mkBar(0.07,1.2,-0.79,0); mkBar(0.07,1.2,0.79,0); mkBar(0.06,1.14,0,0);
+  g.position.set(0.3, 1.55, -HALF + 0.02);
+  return g;
+}
+scene.add(buildWindow());
+
+const grid = new THREE.GridHelper(ROOM, 11, 0x9aa3ad, 0xc8cfd6);
+grid.position.y = 0.004; grid.material.opacity = 0.5; grid.material.transparent = true;
+scene.add(grid);
+
+// ============ Materyaller & yardımcılar ============
+const PALETTE = [0xf2f1ee, 0x33404d, 0xb45309, 0x3f6212, 0x274060, 0xd9c7a3, 0x6b2f1a, 0x4b5563];
+let colorIdx = 0;
+const pickColor = () => PALETTE[(colorIdx++) % PALETTE.length];
+
+function M(color, metalness=0, roughness=0.6){ return new THREE.MeshStandardMaterial({ color, metalness, roughness }); }
+const steelMat  = () => new THREE.MeshStandardMaterial({ color: 0xc2c8ce, metalness: 0.9, roughness: 0.28 });
+const chromeMat = () => new THREE.MeshStandardMaterial({ color: 0xdfe3e7, metalness: 1.0, roughness: 0.12 });
+const glassMat  = () => new THREE.MeshStandardMaterial({ color: 0x10151b, metalness: 0.4, roughness: 0.12 });
+const counterMat= () => new THREE.MeshStandardMaterial({ map: TEX.marble, roughness: 0.35, metalness: 0.05 });
+
+function rbox(w,h,d,material,r=0.025){
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w,h,d,3,r), material);
+  m.castShadow = true; m.receiveShadow = true; return m;
+}
+function bx(w,h,d,material){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material); m.castShadow=true; m.receiveShadow=true; return m; }
+function cyl(rt,rb,h,seg,material){ const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),material); m.castShadow=true; m.receiveShadow=true; return m; }
+
+// Shaker tarzı kapak: çerçeveli, kulplu
+function door(w, h, color, z) {
+  const g = new THREE.Group();
+  const face = rbox(w, h, 0.03, M(color, 0.04, 0.5), 0.015);
+  g.add(face);
+  const inset = rbox(w*0.72, h*0.78, 0.012, M(color, 0.04, 0.62), 0.01);
+  inset.position.z = 0.02; g.add(inset);
+  const handle = cyl(0.008, 0.008, h*0.32, 10, chromeMat());
+  handle.position.set(w*0.36, 0, 0.035); g.add(handle);
+  g.position.z = z; g.userData.role = 'door'; g.userData.doorColor = true;
+  return g;
+}
+function toeKick(w,d){ const t=bx(w-0.04,0.1,d-0.06,M(0x2a2f35,0.1,0.7)); t.position.y=0.05; return t; }
+
+// ============ Mobilya fabrikaları ============
+const FACTORIES = {
+  base(c=pickColor()){
+    const g=new THREE.Group();
+    g.add(toeKick(0.6,0.58));
+    const body=rbox(0.6,0.72,0.56,M(0xf0efec,0,0.7)); body.position.y=0.46; g.add(body);
+    const dL=door(0.27,0.66,c,0.285), dR=door(0.27,0.66,c,0.285);
+    dL.position.x=-0.145; dR.position.x=0.145; dL.position.y=dR.position.y=0.46;
+    dR.children[2].position.x=-0.0; g.add(dL,dR);
+    const top=rbox(0.64,0.05,0.6,counterMat(),0.01); top.position.y=0.845; g.add(top);
+    g.userData={foot:[0.64,0.6],label:'Alt Dolap'}; return g;
+  },
+  wall(c=pickColor()){
+    const g=new THREE.Group();
+    const body=rbox(0.6,0.7,0.34,M(0xf0efec,0,0.7)); body.position.y=1.85; g.add(body);
+    const d=door(0.54,0.66,c,0.175); d.position.y=1.85; g.add(d);
+    g.userData={foot:[0.6,0.34],label:'Üst Dolap'}; return g;
+  },
+  tall(c=pickColor()){
+    const g=new THREE.Group();
+    g.add(toeKick(0.6,0.58));
+    const body=rbox(0.6,2.0,0.56,M(0xf0efec,0,0.7)); body.position.y=1.05; g.add(body);
+    const dT=door(0.54,0.9,c,0.285); dT.position.y=1.5;
+    const dB=door(0.54,0.9,c,0.285); dB.position.y=0.55; g.add(dT,dB);
+    g.userData={foot:[0.6,0.58],label:'Boy Dolap'}; return g;
+  },
+  counter(){
+    const g=new THREE.Group();
+    g.add(toeKick(0.9,0.58));
+    const body=rbox(0.9,0.72,0.56,M(0xf0efec,0,0.7)); body.position.y=0.46; g.add(body);
+    const top=rbox(0.94,0.05,0.6,counterMat(),0.01); top.position.y=0.845; g.add(top);
+    g.userData={foot:[0.94,0.6],label:'Tezgah'}; return g;
+  },
+  fridge(){
+    const g=new THREE.Group();
+    const body=rbox(0.74,1.88,0.7,steelMat(),0.04); body.position.y=0.94; g.add(body);
+    const seam=bx(0.75,0.014,0.005,M(0x8a9298)); seam.position.set(0,1.08,0.352); g.add(seam);
+    for(const y of [1.5,0.55]){ const h=rbox(0.03,0.5,0.04,chromeMat(),0.012); h.position.set(-0.31,y,0.37); g.add(h); }
+    g.userData={foot:[0.74,0.7],label:'Buzdolabı'}; return g;
+  },
+  oven(){
+    const g=FACTORIES.base(0xeceae6);
+    const panel=rbox(0.5,0.46,0.02,glassMat(),0.01); panel.position.set(0,0.45,0.305); g.add(panel);
+    const bar=cyl(0.018,0.018,0.46,12,chromeMat()); bar.rotation.z=Math.PI/2; bar.position.set(0,0.72,0.32); g.add(bar);
+    for(let i=0;i<4;i++){ const k=cyl(0.022,0.022,0.03,16,M(0x2a2f35,0.6,0.4)); k.rotation.x=Math.PI/2; k.position.set(-0.18+i*0.12,0.8,0.315); g.add(k); }
+    g.userData.label='Fırın'; return g;
+  },
+  stove(){
+    const g=FACTORIES.base(0xeceae6);
+    const cook=rbox(0.62,0.04,0.58,M(0x14181d,0.3,0.2),0.01); cook.position.y=0.87; g.add(cook);
+    for(const [x,z] of [[-0.14,-0.13],[0.14,-0.13],[-0.14,0.13],[0.14,0.13]]){
+      const b=cyl(0.075,0.075,0.012,24,M(0x2b2f34,0.4,0.5)); b.position.set(x,0.892,z); g.add(b);
+      const r=cyl(0.05,0.05,0.014,20,M(0x1a1d21,0.5,0.4)); r.position.set(x,0.9,z); g.add(r);
+    }
+    g.userData.label='Ocak'; return g;
+  },
+  sink(){
+    const g=FACTORIES.base(0xeceae6);
+    const basin=bx(0.44,0.12,0.4,chromeMat()); basin.position.y=0.8; g.add(basin);
+    const inner=bx(0.36,0.1,0.32,M(0x9aa1a7,0.85,0.3)); inner.position.y=0.83; g.add(inner);
+    const fb=cyl(0.018,0.022,0.22,14,chromeMat()); fb.position.set(0,0.96,-0.17); g.add(fb);
+    const fs=cyl(0.016,0.016,0.18,14,chromeMat()); fs.rotation.z=Math.PI/2.4; fs.position.set(0.04,1.06,-0.13); g.add(fs);
+    g.userData.label='Evye'; return g;
+  },
+  dishwasher(){
+    const g=new THREE.Group();
+    const body=rbox(0.6,0.82,0.56,steelMat(),0.03); body.position.y=0.46; g.add(body);
+    const strip=bx(0.5,0.05,0.015,M(0x2a2f35,0.6,0.4)); strip.position.set(0,0.77,0.29); g.add(strip);
+    const handle=cyl(0.014,0.014,0.5,12,chromeMat()); handle.rotation.z=Math.PI/2; handle.position.set(0,0.68,0.3); g.add(handle);
+    const top=rbox(0.64,0.05,0.6,counterMat(),0.01); top.position.y=0.845; g.add(top);
+    g.userData={foot:[0.64,0.6],label:'Bulaşık Mak.'}; return g;
+  },
+  hood(){
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.3,0.18,4), steelMat());
+    body.rotation.y=Math.PI/4; body.position.y=1.55; body.castShadow=true; g.add(body);
+    const chim=rbox(0.2,1.0,0.2,steelMat(),0.02); chim.position.y=2.13; g.add(chim);
+    g.userData={foot:[0.52,0.46],label:'Davlumbaz'}; return g;
+  },
+  // ---- Dekor ----
+  rug(){
+    const g=new THREE.Group();
+    const r=new THREE.Mesh(new THREE.PlaneGeometry(1.6,2.4),
+      new THREE.MeshStandardMaterial({ map: rugTexture('#b07a4a'), roughness: 0.95 }));
+    r.rotation.x=-Math.PI/2; r.position.y=0.012; r.receiveShadow=true; g.add(r);
+    g.userData={foot:[1.6,2.4],label:'Halı',flat:true}; return g;
+  },
+  plant(){
+    const g=new THREE.Group();
+    const pot=cyl(0.14,0.1,0.22,16,M(0xb5651d,0.1,0.7)); pot.position.y=0.11; g.add(pot);
+    const soil=cyl(0.12,0.12,0.02,16,M(0x3b2a1a)); soil.position.y=0.22; g.add(soil);
+    for(let i=0;i<5;i++){ const leaf=new THREE.Mesh(new THREE.IcosahedronGeometry(0.14+i*0.02,0), M(0x3f7d2e,0,0.8));
+      leaf.position.set(Math.sin(i*1.3)*0.07,0.34+i*0.07,Math.cos(i*1.3)*0.07); leaf.castShadow=true; g.add(leaf); }
+    g.userData={foot:[0.3,0.3],label:'Bitki'}; return g;
+  },
+  stool(){
+    const g=new THREE.Group(); const c=0x33404d;
+    const seat=cyl(0.18,0.18,0.05,20,M(c,0.1,0.6)); seat.position.y=0.62; g.add(seat);
+    for(const [x,z] of [[0.12,0.12],[-0.12,0.12],[0.12,-0.12],[-0.12,-0.12]]){
+      const l=cyl(0.015,0.015,0.6,8,chromeMat()); l.position.set(x,0.31,z); g.add(l); }
+    g.userData={foot:[0.4,0.4],label:'Tabure'}; return g;
+  },
+  table(){
+    const g=new THREE.Group();
+    const top=rbox(1.2,0.06,0.75,M(0x8a5a32,0.1,0.5),0.02); top.position.y=0.74; g.add(top);
+    for(const [x,z] of [[0.52,0.3],[-0.52,0.3],[0.52,-0.3],[-0.52,-0.3]]){
+      const l=bx(0.06,0.72,0.06,M(0x6b4423,0.1,0.6)); l.position.set(x,0.37,z); g.add(l); }
+    g.userData={foot:[1.2,0.75],label:'Masa'}; return g;
+  },
+};
+
+// ============ Durum & seçim ============
+const items=[]; let selected=null, snapOn=true, boxHelper=null; const SNAP=0.1;
+
+function select(obj){
+  selected=obj;
+  if(boxHelper){ scene.remove(boxHelper); boxHelper=null; }
+  if(obj){ boxHelper=new THREE.BoxHelper(obj,0x2563eb); scene.add(boxHelper); }
+}
+const refreshHelper=()=>{ if(boxHelper&&selected) boxHelper.update(); };
+
+function spawn(type){ const g=FACTORIES[type](); g.userData.type=type; scene.add(g); items.push(g); return g; }
+function applySnap(g){
+  let x=g.position.x, z=g.position.z;
+  if(snapOn && !g.userData.flat){ x=Math.round(x/SNAP)*SNAP; z=Math.round(z/SNAP)*SNAP; }
+  const fw=(g.userData.foot?.[0]||0.6)/2, fd=(g.userData.foot?.[1]||0.6)/2;
+  g.position.x=THREE.MathUtils.clamp(x,-HALF+fw,HALF-fw);
+  g.position.z=THREE.MathUtils.clamp(z,-HALF+fd,HALF-fd);
+}
+function addFromCatalog(type){
+  const g=spawn(type);
+  g.position.set(-HALF+0.5+(items.length*0.18)%1.4,0,-HALF+0.5);
+  applySnap(g); select(g); updateCount();
+}
+function place(type,x,z,rotDeg=0){
+  const g=spawn(type);
+  g.position.set(x,0,z);
+  if(rotDeg){ g.rotation.y=rotDeg*Math.PI/180; if(rotDeg%180!==0){ const f=g.userData.foot; if(f) g.userData.foot=[f[1],f[0]]; } }
+  applySnap(g); return g;
+}
+function deleteSelected(){
+  if(!selected) return;
+  scene.remove(selected); selected.traverse(o=>{ if(o.geometry) o.geometry.dispose(); });
+  items.splice(items.indexOf(selected),1); select(null); updateCount();
+}
+function clearAll(){ [...items].forEach(i=>{ selected=i; deleteSelected(); }); }
+const updateCount=()=>{ document.getElementById('count').textContent=items.length+' obje'; };
+
+// ============ Hazır mutfak şablonları ============
+const inB=-HALF+0.32, inL=-HALF+0.32; // duvar önü merkez ekseni
+function buildPreset(kind){
+  clearAll();
+  if(kind==='single'){ setLayout(false); }
+  else { setLayout(true); }
+
+  if(kind==='single'){
+    const xs=[-1.6,-1.0,-0.4,0.2,0.8,1.4];
+    place('tall',xs[0],inB); place('base',xs[1],inB); place('sink',xs[2],inB);
+    place('stove',xs[3],inB); place('dishwasher',xs[4],inB); place('base',xs[5],inB);
+    [xs[1],xs[2],xs[4],xs[5]].forEach(x=>place('wall',x,-HALF+0.2));
+    place('hood',xs[3],-HALF+0.24);
+    place('table',0.4,1.2); place('stool',-0.2,1.2,0); place('stool',1.0,1.2,0);
+  }
+  else if(kind==='L'){
+    // arka duvar
+    const bx=[-0.6,0.0,0.6,1.2];
+    place('sink',bx[0],inB); place('stove',bx[1],inB); place('base',bx[2],inB); place('dishwasher',bx[3],inB);
+    [bx[0],bx[2],bx[3]].forEach(x=>place('wall',x,-HALF+0.2));
+    place('hood',bx[1],-HALF+0.24);
+    // sol duvar
+    place('tall',inL,1.3,90); place('base',inL,0.65,90); place('base',inL,0.0,90); place('fridge',inL,-0.7,90);
+    place('table',0.7,1.3); place('stool',0.2,1.3,0); place('stool',1.2,1.3,0);
+  }
+  else if(kind==='island'){
+    const bx=[-1.4,-0.8,-0.2,0.4,1.0,1.6];
+    place('tall',bx[0],inB); place('sink',bx[1],inB); place('base',bx[2],inB);
+    place('stove',bx[3],inB); place('base',bx[4],inB); place('fridge',bx[5],inB);
+    [bx[1],bx[2],bx[4]].forEach(x=>place('wall',x,-HALF+0.2));
+    place('hood',bx[3],-HALF+0.24);
+    // ada
+    place('counter',-0.3,0.7); place('counter',0.6,0.7); place('base',-0.3,1.3,180); place('base',0.6,1.3,180);
+    place('stool',-0.5,1.7,0); place('stool',0.1,1.7,0); place('stool',0.7,1.7,0);
+  }
+  select(null); updateCount();
+}
+
+// ============ Dekor (tema ile gelen tam mutfak görünümü) ============
+const decor = new THREE.Group(); scene.add(decor);
+let rugMesh, pendants=[];
+function buildDecor(){
+  // Halı
+  const rug=new THREE.Mesh(new THREE.PlaneGeometry(2.0,2.8),
+    new THREE.MeshStandardMaterial({ map: rugTexture('#b07a4a'), roughness:0.95 }));
+  rug.rotation.x=-Math.PI/2; rug.position.set(0.4,0.012,0.9); rug.receiveShadow=true;
+  rugMesh=rug; decor.add(rug);
+  // Bitkiler
+  const p1=FACTORIES.plant(); p1.position.set(HALF-0.4,0,HALF-0.4); decor.add(p1);
+  const p2=FACTORIES.plant(); p2.scale.set(0.8,0.8,0.8); p2.position.set(-HALF+0.35,0,HALF-0.5); decor.add(p2);
+  // Sarkıt lambalar (akşam temasında yanar)
+  for(const x of [-0.2,0.9]){
+    const lg=new THREE.Group();
+    const cord=cyl(0.006,0.006,0.6,6,M(0x222222)); cord.position.y=2.4; lg.add(cord);
+    const shade=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.2,18,1,true), M(0x33404d,0.3,0.6));
+    shade.position.y=2.0; shade.castShadow=true; lg.add(shade);
+    const bulb=cyl(0.05,0.05,0.04,12,new THREE.MeshStandardMaterial({color:0xfff3d0,emissive:0xffcf7a,emissiveIntensity:1}));
+    bulb.position.y=1.95; lg.add(bulb);
+    const pl=new THREE.PointLight(0xffd9a0,0,4,2); pl.position.set(0,1.92,0); lg.add(pl);
+    lg.position.set(x,0,0.7); pendants.push({lg,pl,bulb}); decor.add(lg);
+  }
+}
+buildDecor();
+
+// ============ Temalar ============
+const THEMES=[
+  { name:'Modern Ahşap', floor:TEX.woodLight, wall:0xeae6df, bg:0xd7dde3, hemi:0.5, sun:1.7, sunCol:0xfff4e0, pendant:0,   rug:'#b07a4a' },
+  { name:'Akşam Loft',   floor:TEX.woodDark,  wall:0x2c3440, bg:0x1c2531, hemi:0.22,sun:0.4, sunCol:0xffd9a0, pendant:14,  rug:'#6d4030' },
+  { name:'Klasik Fayans',floor:TEX.tile,      wall:0xf3efe7, bg:0xe7eaee, hemi:0.6, sun:1.9, sunCol:0xffffff, pendant:0,   rug:'#7c93a8' },
+];
+let themeIdx=0;
+function applyTheme(i){
+  themeIdx=(i+THEMES.length)%THEMES.length;
+  const t=THEMES[themeIdx];
+  floorMat.map=t.floor; floorMat.needsUpdate=true;
+  wallMat.color.setHex(t.wall);
+  scene.background=new THREE.Color(t.bg); scene.fog.color.setHex(t.bg);
+  hemi.intensity=t.hemi; sun.intensity=t.sun; sun.color.setHex(t.sunCol);
+  if(rugMesh){ rugMesh.material.map=rugTexture(t.rug); rugMesh.material.needsUpdate=true; }
+  pendants.forEach(p=>{ p.pl.intensity=t.pendant; p.bulb.material.emissiveIntensity=t.pendant?1.6:0.3; });
+  decor.visible=true; decorOn=true;
+  document.getElementById('btn-theme').textContent='🎨 Görünüm: '+t.name;
+  document.getElementById('btn-decor').classList.add('on');
+  document.getElementById('btn-decor').textContent='🛋️ Dekor: Açık';
+}
+
+let lShape=true;
+function setLayout(on){
+  lShape=on; wallLeft.visible=on;
+  const b=document.getElementById('btn-layout');
+  b.classList.toggle('on',on); b.textContent=on?'📐 L Köşe':'▭ Tek Duvar';
+}
+
+// ============ Etkileşim ============
+const raycaster=new THREE.Raycaster(), pointer=new THREE.Vector2();
+const dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0), hitPoint=new THREE.Vector3(), dragOffset=new THREE.Vector3();
+let dragging=false;
+const setPointer=e=>{ pointer.x=(e.clientX/innerWidth)*2-1; pointer.y=-(e.clientY/innerHeight)*2+1; };
+const rootOf=o=>{ while(o&&!items.includes(o)) o=o.parent; return o; };
+
+renderer.domElement.addEventListener('pointerdown',e=>{
+  if(e.button!==0) return;
+  setPointer(e); raycaster.setFromCamera(pointer,camera);
+  const hits=raycaster.intersectObjects(items,true);
+  if(hits.length){
+    const root=rootOf(hits[0].object); select(root);
+    if(raycaster.ray.intersectPlane(dragPlane,hitPoint)) dragOffset.set(root.position.x-hitPoint.x,0,root.position.z-hitPoint.z);
+    dragging=true; controls.enabled=false;
+  } else select(null);
+});
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(!dragging||!selected) return;
+  setPointer(e); raycaster.setFromCamera(pointer,camera);
+  if(raycaster.ray.intersectPlane(dragPlane,hitPoint)){
+    selected.position.x=hitPoint.x+dragOffset.x; selected.position.z=hitPoint.z+dragOffset.z;
+    applySnap(selected); refreshHelper();
+  }
+});
+addEventListener('pointerup',()=>{ dragging=false; controls.enabled=true; });
+
+function rotateSelected(){ if(!selected) return; selected.rotation.y+=Math.PI/2; const f=selected.userData.foot; if(f) selected.userData.foot=[f[1],f[0]]; applySnap(selected); refreshHelper(); }
+function colorSelected(){ if(!selected) return; const c=pickColor(); selected.traverse(o=>{ if(o.userData.doorColor) o.children.forEach(ch=>{ if(ch.material&&ch.material.color) ch.material.color.setHex(c); }); }); }
+
+addEventListener('keydown',e=>{
+  if(e.key==='r'||e.key==='R') rotateSelected();
+  else if(e.key==='Delete'||e.key==='Backspace') deleteSelected();
+  else if(e.key==='Escape') select(null);
+});
+
+// ============ UI ============
+document.querySelectorAll('.item-btn[data-type]').forEach(b=>b.addEventListener('click',()=>addFromCatalog(b.dataset.type)));
+document.querySelectorAll('.item-btn[data-preset]').forEach(b=>b.addEventListener('click',()=>buildPreset(b.dataset.preset)));
+document.getElementById('btn-rotate').addEventListener('click',rotateSelected);
+document.getElementById('btn-delete').addEventListener('click',deleteSelected);
+document.getElementById('btn-color').addEventListener('click',colorSelected);
+document.getElementById('btn-clear').addEventListener('click',clearAll);
+document.getElementById('btn-theme').addEventListener('click',()=>applyTheme(themeIdx+1));
+
+let decorOn=true;
+document.getElementById('btn-decor').addEventListener('click',()=>{
+  decorOn=!decorOn; decor.visible=decorOn;
+  const b=document.getElementById('btn-decor'); b.classList.toggle('on',decorOn);
+  b.textContent='🛋️ Dekor: '+(decorOn?'Açık':'Kapalı');
+});
+const snapBtn=document.getElementById('btn-snap');
+snapBtn.addEventListener('click',()=>{ snapOn=!snapOn; snapBtn.classList.toggle('on',snapOn); snapBtn.textContent='🧲 Izgara'+(snapOn?'':' (kapalı)'); });
+document.getElementById('btn-layout').addEventListener('click',()=>setLayout(!lShape));
+
+// ============ Render ============
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+(function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene,camera); })();
+
+// ============ Başlangıç: hazır L mutfak + tema ============
+applyTheme(0);
+buildPreset('L');
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "kitchen-planner-3d",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "IKEA tarzı 3D mutfak tasarım planlayıcısı — React + Babylon.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^7.31.0",
+    "@babylonjs/gui": "^7.54.3",
+    "@fontsource/inter": "^5.2.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "puppeteer-core": "^23.11.1",
+    "vite": "^5.4.11"
+  }
+}
