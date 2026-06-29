@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"time"
 
@@ -10,7 +11,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtSecret = []byte("kitchen-demo-secret-degistir-beni")
+var jwtSecret = func() []byte {
+	s := os.Getenv("JWT_SECRET")
+	if s == "" {
+		s = "kitchen-demo-secret-degistir-beni"
+	}
+	return []byte(s)
+}()
 
 func makeToken(userID string) (string, error) {
 	claims := jwt.MapClaims{

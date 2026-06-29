@@ -1,15 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"log"
 	"os"
-	"sync"
 
 	"github.com/gofiber/fiber/v2"
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 )
-
-// Basit, dosya tabanlı JSON store. Demo için yeterli ve güvenilir; harici
-// veritabanı / CGO bağımlılığı yok. Tüm erişim tek bir mutex ile korunur.
 
 type User struct {
 	ID       string `json:"id"`
@@ -30,109 +29,139 @@ type Design struct {
 	UpdatedAt int64           `json:"updatedAt"`
 }
 
-type dbData struct {
-	Users   []User   `json:"users"`
-	Designs []Design `json:"designs"`
-}
-
 type Store struct {
-	mu   sync.Mutex
-	path string
-	data dbData
+	db *sql.DB
 }
 
-func NewStore(path string) *Store {
-	s := &Store{path: path}
-	if b, err := os.ReadFile(path); err == nil {
-		_ = json.Unmarshal(b, &s.data)
+func NewStore() *Store {
+	dbURL := os.Getenv("TURSO_DATABASE_URL")
+	authToken := os.Getenv("TURSO_AUTH_TOKEN")
+
+	if dbURL == "" {
+		log.Fatal("TURSO_DATABASE_URL ortam değişkeni gerekli")
 	}
-	return s
-}
 
-func (s *Store) persist() {
-	b, _ := json.MarshalIndent(s.data, "", "  ")
-	_ = os.WriteFile(s.path, b, 0o644)
+	url := dbURL + "?authToken=" + authToken
+
+	db, err := sql.Open("libsql", url)
+	if err != nil {
+		log.Fatalf("Veritabanına bağlanılamadı: %v", err)
+	}
+
+	// Tabloları oluştur
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS users (
+			id TEXT PRIMARY KEY,
+			email TEXT UNIQUE NOT NULL,
+			pass_hash TEXT NOT NULL
+		)
+	`)
+	if err != nil {
+		log.Fatalf("users tablosu oluşturulamadı: %v", err)
+	}
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS designs (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			data TEXT,
+			updated_at INTEGER NOT NULL
+		)
+	`)
+	if err != nil {
+		log.Fatalf("designs tablosu oluşturulamadı: %v", err)
+	}
+
+	return &Store{db: db}
 }
 
 // ---------- Kullanıcılar ----------
 
 func (s *Store) FindUserByEmail(email string) (User, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, u := range s.data.Users {
-		if u.Email == email {
-			return u, true
-		}
+	var u User
+	err := s.db.QueryRow("SELECT id, email, pass_hash FROM users WHERE email = ?", email).
+		Scan(&u.ID, &u.Email, &u.PassHash)
+	if err != nil {
+		return User{}, false
 	}
-	return User{}, false
+	return u, true
 }
 
 func (s *Store) FindUserByID(id string) (User, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, u := range s.data.Users {
-		if u.ID == id {
-			return u, true
-		}
+	var u User
+	err := s.db.QueryRow("SELECT id, email, pass_hash FROM users WHERE id = ?", id).
+		Scan(&u.ID, &u.Email, &u.PassHash)
+	if err != nil {
+		return User{}, false
 	}
-	return User{}, false
+	return u, true
 }
 
 func (s *Store) CreateUser(u User) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.data.Users = append(s.data.Users, u)
-	s.persist()
+	_, err := s.db.Exec("INSERT INTO users (id, email, pass_hash) VALUES (?, ?, ?)",
+		u.ID, u.Email, u.PassHash)
+	if err != nil {
+		log.Printf("Kullanıcı oluşturma hatası: %v", err)
+	}
 }
 
 // ---------- Tasarımlar ----------
 
 func (s *Store) ListDesigns(userID string) []Design {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := []Design{}
-	for _, d := range s.data.Designs {
-		if d.UserID == userID {
-			out = append(out, d)
-		}
+	rows, err := s.db.Query("SELECT id, user_id, name, data, updated_at FROM designs WHERE user_id = ? ORDER BY updated_at DESC", userID)
+	if err != nil {
+		log.Printf("Tasarım listesi hatası: %v", err)
+		return []Design{}
 	}
-	return out
+	defer rows.Close()
+
+	var designs []Design
+	for rows.Next() {
+		var d Design
+		var data sql.NullString
+		if err := rows.Scan(&d.ID, &d.UserID, &d.Name, &data, &d.UpdatedAt); err != nil {
+			continue
+		}
+		if data.Valid {
+			d.Data = json.RawMessage(data.String)
+		}
+		designs = append(designs, d)
+	}
+	if designs == nil {
+		designs = []Design{}
+	}
+	return designs
 }
 
 func (s *Store) GetDesign(id string) (Design, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, d := range s.data.Designs {
-		if d.ID == id {
-			return d, true
-		}
+	var d Design
+	var data sql.NullString
+	err := s.db.QueryRow("SELECT id, user_id, name, data, updated_at FROM designs WHERE id = ?", id).
+		Scan(&d.ID, &d.UserID, &d.Name, &data, &d.UpdatedAt)
+	if err != nil {
+		return Design{}, false
 	}
-	return Design{}, false
+	if data.Valid {
+		d.Data = json.RawMessage(data.String)
+	}
+	return d, true
 }
 
 func (s *Store) SaveDesign(d Design) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i, ex := range s.data.Designs {
-		if ex.ID == d.ID {
-			s.data.Designs[i] = d
-			s.persist()
-			return
-		}
+	dataStr := string(d.Data)
+	_, err := s.db.Exec(`
+		INSERT INTO designs (id, user_id, name, data, updated_at) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET name = excluded.name, data = excluded.data, updated_at = excluded.updated_at
+	`, d.ID, d.UserID, d.Name, dataStr, d.UpdatedAt)
+	if err != nil {
+		log.Printf("Tasarım kaydetme hatası: %v", err)
 	}
-	s.data.Designs = append(s.data.Designs, d)
-	s.persist()
 }
 
 func (s *Store) DeleteDesign(id string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := s.data.Designs[:0]
-	for _, d := range s.data.Designs {
-		if d.ID != id {
-			out = append(out, d)
-		}
+	_, err := s.db.Exec("DELETE FROM designs WHERE id = ?", id)
+	if err != nil {
+		log.Printf("Tasarım silme hatası: %v", err)
 	}
-	s.data.Designs = out
-	s.persist()
 }

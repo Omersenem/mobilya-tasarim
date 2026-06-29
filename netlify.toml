@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# API isteklerini Render backend'ine yönlendir
+[[redirects]]
+  from = "/api/*"
+  to = "https://mobilya-tasarim-api.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+# SPA — tüm diğer yollar index.html'e düşsün
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

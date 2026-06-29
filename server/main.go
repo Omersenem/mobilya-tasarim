@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	store := NewStore("data.json")
+	store := NewStore()
 
 	app := fiber.New(fiber.Config{
 		AppName: "Mutfak Planner API",
@@ -25,7 +25,7 @@ func main() {
 	})
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: "https://senem-mobilya-tasarim.netlify.app",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
